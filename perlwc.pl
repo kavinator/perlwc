@@ -35,7 +35,7 @@ for my $file( @ARGV ) {
 		my $file_data = {};
 		$$file_data{ $_ } = 0 for @$opts;
 		while ( <F> ) {
-			$$file_data{ w } += grep { defined } split /\s+/ if 'w' ~~ @$opts;
+			$$file_data{ w } += grep { $_ if defined } split /\s+/ if 'w' ~~ @$opts;
 			$$file_data{ c } += split // if 'c' ~~ @$opts;
 		}
 		$$file_data{ l }  = $. if 'l' ~~ @$opts;
