@@ -21,6 +21,28 @@ use warnings;
 use 5.006;
 use Getopt::Std;
 
+# input: $file_name, ref_to_@opts
+# return: ref_to_hash
+sub analyze_file {
+	my $file = shift;
+	my $opts = shift;
+	my $file_data = {};
+	$$file_data{ $_ } = 0 for @$opts;
+	open F, '<', $file or die "$0: $file: $!\n";
+		while ( <F> ) {
+			$$file_data{ w }+=
+				grep { $_ if defined }
+				split /\s+/
+				if 'w' ~~ @$opts;
+			$$file_data{ c }+=
+				split //
+				if 'c' ~~ @$opts;
+		}
+		$$file_data{ l } = $. if 'l' ~~ @$opts;
+	close F;
+	return $file_data;
+}
+
 my %options;
 getopts( 'lwc', \%options );
 my $opts;
@@ -30,17 +52,13 @@ $opts = [ qw( l w c ) ] unless @$opts;
 my $total_data = {};
 $$total_data{ $_ } = 0 for @$opts;
 my $format  = ( "%8d " x @$opts ) . "%2s\n";
-for my $file( @ARGV ) {
-	open F, '<', $file or die "$0: $file: $!\n";
-		my $file_data = {};
-		$$file_data{ $_ } = 0 for @$opts;
-		while ( <F> ) {
-			$$file_data{ w } += grep { $_ if defined } split /\s+/ if 'w' ~~ @$opts;
-			$$file_data{ c } += split // if 'c' ~~ @$opts;
-		}
-		$$file_data{ l }  = $. if 'l' ~~ @$opts;
-		$$total_data{ $_ } += $$file_data{ $_ } for keys %$file_data;
+
+for my $file ( @ARGV ) {
+	my $file_data = &analyze_file( $file, $opts );
+	if ( $file_data ) {
 		printf $format, @$file_data{ @$opts }, $file;
-	close F;
+		$$total_data{ $_ } += $$file_data{ $_ } for keys %$file_data;
+	}
 }
+
 printf $format, @$total_data{ @$opts }, 'total' if $#ARGV > 0;
