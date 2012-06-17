@@ -20,27 +20,23 @@ use warnings;
 
 use 5.006;
 use Getopt::Std;
+use threads;
 
 # input: $file_name, ref_to_@opts
 # return: ref_to_hash
 sub analyze_file {
 	my $file = shift;
 	my $opts = shift;
-	my $file_data = {};
-	$$file_data{ $_ } = 0 for @$opts;
+	my $data = {};
+	$$data{ $_ } = 0 for @$opts;
 	open F, '<', $file or die "$0: $file: $!\n";
 		while ( <F> ) {
-			$$file_data{ w }+=
-				grep { $_ if defined }
-				split /\s+/
-				if 'w' ~~ @$opts;
-			$$file_data{ c }+=
-				split //
-				if 'c' ~~ @$opts;
+			$$data{ w }+= grep { $_ if defined } split /\s+/ if 'w' ~~ @$opts;
+			$$data{ c }+= split // if 'c' ~~ @$opts;
 		}
-		$$file_data{ l } = $. if 'l' ~~ @$opts;
+		$$data{ l } = $. if 'l' ~~ @$opts;
 	close F;
-	return $file_data;
+	return $data;
 }
 
 my %options;
@@ -51,13 +47,23 @@ $opts = [ qw( l w c ) ] unless @$opts;
 
 my $total_data = {};
 $$total_data{ $_ } = 0 for @$opts;
-my $format  = ( "%8d " x @$opts ) . "%2s\n";
 
+my $format = ( "%8d " x @$opts ) . "%2s\n";
+
+my $thread = [];
 for my $file ( @ARGV ) {
-	my $file_data = &analyze_file( $file, $opts );
-	if ( $file_data ) {
-		printf $format, @$file_data{ @$opts }, $file;
-		$$total_data{ $_ } += $$file_data{ $_ } for keys %$file_data;
+	push @$thread, {
+		data => threads->new( \&analyze_file, $file, $opts ),
+		file => $file,
+	}
+}
+
+for my $th ( @$thread ) {
+	my $data = $$th{ data }->join();
+	my $file = $$th{ file };
+	if ( $data and $file ) {
+		$$total_data{ $_ } += $$data{ $_ } for keys %$data;
+		printf $format, @$data{ @$opts }, $file;
 	}
 }
 
