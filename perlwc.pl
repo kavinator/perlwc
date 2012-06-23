@@ -29,13 +29,13 @@ sub analyze_file {
 	my $opts = shift;
 	my $data = {};
 	$$data{ $_ } = 0 for @$opts;
-	open F, '<', $file or die "$0: $file: $!\n";
-		while ( <F> ) {
+	open my $F, '<', $file or die "$0: $file: $!\n";
+		while ( <$F> ) {
 			$$data{ w }+= grep { $_ if defined } split /\s+/ if 'w' ~~ @$opts;
 			$$data{ c }+= split // if 'c' ~~ @$opts;
 		}
 		$$data{ l } = $. if 'l' ~~ @$opts;
-	close F;
+	close $F;
 	return $data;
 }
 
