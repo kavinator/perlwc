@@ -25,18 +25,18 @@ use threads;
 # input: $file_name, ref_to_@opts
 # return: ref_to_hash
 sub analyze_file {
-	my $file = shift;
+	my $name = shift;
 	my $data = {};
 	$$data{ $_ } = 0 for @{ +shift };
-	open my $F, '<', $file or die "$0: $file: $!\n";
-		while ( <$F> ) {
+	open my $FILE, '<', $name or die "$0: $name: $!\n";
+		while ( <$FILE> ) {
 			$$data{ w }+= grep { $_ if defined } split /\s+/
 				if defined $$data{ w };
 			$$data{ c }+= split //
 				if defined $$data{ c };
 		}
 		$$data{ l } = $. if defined $$data{ l };
-	close $F;
+	close $FILE;
 	return $data;
 }
 
@@ -52,19 +52,19 @@ $$total_data{ $_ } = 0 for @$opts;
 my $format = ( "%8d " x @$opts ) . "%2s\n";
 
 my $thread = [];
-for my $file ( @ARGV ) {
+for my $file_name ( @ARGV ) {
 	push @$thread, {
-		data => threads->new( \&analyze_file, $file, $opts ),
-		file => $file,
+		data => threads->new( \&analyze_file, $file_name, $opts ),
+		name => $file_name,
 	}
 }
 
 for my $th ( @$thread ) {
 	my $data = $$th{ data }->join();
-	my $file = $$th{ file };
-	if ( $data and $file ) {
+	my $name = $$th{ name };
+	if ( $data and $name ) {
 		$$total_data{ $_ } += $$data{ $_ } for keys %$data;
-		printf $format, @$data{ @$opts }, $file;
+		printf $format, @$data{ @$opts }, $name;
 	}
 }
 
