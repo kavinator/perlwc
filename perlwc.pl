@@ -45,10 +45,6 @@ getopts( 'lwc', \%options );
 my $opts;
 $opts = [ keys \%options ];
 $opts = [ qw( l w c ) ] unless @$opts;
-
-my $total_data = {};
-$$total_data{ $_ } = 0 for @$opts;
-
 my $format = ( "%8d " x @$opts ) . "%2s\n";
 
 my $thread = [];
@@ -58,6 +54,9 @@ for my $file_name ( @ARGV ) {
 		name => $file_name,
 	}
 }
+
+my $total_data = {};
+$$total_data{ $_ } = 0 for @$opts;
 
 for my $th ( @$thread ) {
 	my $data = $$th{ data }->join();
