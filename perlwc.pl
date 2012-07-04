@@ -18,7 +18,7 @@
 use strict;
 use warnings;
 
-use 5.010;
+use 5.006;
 use Getopt::Std;
 use threads;
 
@@ -26,15 +26,16 @@ use threads;
 # return: ref_to_hash
 sub analyze_file {
 	my $file = shift;
-	my $opts = shift;
 	my $data = {};
-	$$data{ $_ } = 0 for @$opts;
+	$$data{ $_ } = 0 for @{ +shift };
 	open my $F, '<', $file or die "$0: $file: $!\n";
 		while ( <$F> ) {
-			$$data{ w }+= grep { $_ if defined } split /\s+/ if 'w' ~~ @$opts;
-			$$data{ c }+= split // if 'c' ~~ @$opts;
+			$$data{ w }+= grep { $_ if defined } split /\s+/
+				if defined $$data{ w };
+			$$data{ c }+= split //
+				if defined $$data{ c };
 		}
-		$$data{ l } = $. if 'l' ~~ @$opts;
+		$$data{ l } = $. if defined $$data{ l };
 	close $F;
 	return $data;
 }
