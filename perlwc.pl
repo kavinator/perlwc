@@ -22,6 +22,21 @@ use 5.006;
 use Getopt::Std;
 use threads;
 
+my %options;
+getopts( 'lwc', \%options );
+my $opts;
+$opts = [ keys \%options ];
+$opts = [ qw( l w c ) ] unless @$opts;
+
+my $files = [ @ARGV ];
+my $max_threads = 8;
+my $tids_order = [];
+my $threads_data = {};
+my $total_data = {};
+my $format = ( "%8d " x @$opts ) . "%2s\n";
+
+$$total_data{ $_ } = 0 for @$opts;
+
 # input: $file_name, ref_to_@opts
 # return: ref_to_hash
 sub analyze_file {
@@ -40,31 +55,57 @@ sub analyze_file {
 	return $data;
 }
 
-my %options;
-getopts( 'lwc', \%options );
-my $opts;
-$opts = [ keys \%options ];
-$opts = [ qw( l w c ) ] unless @$opts;
-my $format = ( "%8d " x @$opts ) . "%2s\n";
-
-my $thread = [];
-for my $file_name ( @ARGV ) {
-	push @$thread, {
-		data => threads->new( \&analyze_file, $file_name, $opts ),
-		name => $file_name,
-	}
-}
-
-my $total_data = {};
-$$total_data{ $_ } = 0 for @$opts;
-
-for my $th ( @$thread ) {
-	my $data = $$th{ data }->join();
-	my $name = $$th{ name };
+# input: ref_to_%file_data, $file_name
+sub thread_processing {
+	my ( $data, $name ) = @_;
 	if ( $data and $name ) {
 		$$total_data{ $_ } += $$data{ $_ } for keys %$data;
 		printf $format, @$data{ @$opts }, $name;
 	}
 }
 
-printf $format, @$total_data{ @$opts }, 'total' if $#ARGV > 0;
+for my $name ( @$files ) {
+	for my $thr ( threads->list( threads::joinable ) ) {
+		my $tid  = $thr->tid();
+		my $data = $thr->join();
+		if ( $$tids_order[ 0 ] and ( $$tids_order[ 0 ] == $tid ) ) {
+			&thread_processing(
+				$data,
+				$threads_data->{ $tid }->{ name }
+			);
+			shift @$tids_order;
+		} else {
+			$threads_data->{ $tid }->{ data } = $data;
+		}
+		$tid = $$tids_order[ 0 ];
+		if ( $tid and $threads_data->{ $tid } ) {
+			$data = $threads_data->{ $tid }->{ data };
+			if ( $data ) {
+				&thread_processing(
+					$data,
+					$threads_data->{ $tid }->{ name }
+				);
+				shift @$tids_order;
+			}
+		}
+	}
+	if ( threads->list( threads::running ) <= ( $max_threads - 1 ) ) {
+		my $tid = threads->new( \&analyze_file, $name, $opts )->tid();
+		push @$tids_order, $tid;
+		$threads_data->{ $tid } = { name => $name };
+	} else {
+		redo;
+	}
+}
+
+for my $tid ( @$tids_order ) {
+	my $data = $threads_data->{ $tid }->{ data };
+	my $name = $threads_data->{ $tid }->{ name };
+	$data = threads->object( $tid )->join() unless $data;
+	&thread_processing(
+		$data,
+		$name
+	);
+}
+
+printf $format, @$total_data{ @$opts }, 'total' if scalar @$files > 0;
