@@ -25,7 +25,7 @@ use threads;
 my %options;
 getopts( 'lwc', \%options );
 my $opts;
-$opts = [ keys \%options ];
+$opts = [ keys %options ];
 $opts = [ qw( l w c ) ] unless @$opts;
 
 my $files = [ @ARGV ];
