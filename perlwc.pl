@@ -30,7 +30,7 @@ $opts = [ qw( l w c ) ] unless @$opts;
 
 my $files = [ @ARGV ];
 my $max_threads = 8;
-my $tids_order = [];
+my @tids_order;
 my $threads_data = {};
 my $total_data = {};
 my $format = ( "%8d " x @$opts ) . "%2s\n";
@@ -68,16 +68,16 @@ for my $name ( @$files ) {
 	for my $thr ( threads->list( threads::joinable ) ) {
 		my $tid  = $thr->tid();
 		my $data = $thr->join();
-		if ( $$tids_order[ 0 ] and ( $$tids_order[ 0 ] == $tid ) ) {
+		if ( $tids_order[ 0 ] and ( $tids_order[ 0 ] == $tid ) ) {
 			&thread_processing(
 				$data,
 				$threads_data->{ $tid }->{ name }
 			);
-			shift @$tids_order;
+			shift @tids_order;
 		} else {
 			$threads_data->{ $tid }->{ data } = $data;
 		}
-		$tid = $$tids_order[ 0 ];
+		$tid = $tids_order[ 0 ];
 		if ( $tid and $threads_data->{ $tid } ) {
 			$data = $threads_data->{ $tid }->{ data };
 			if ( $data ) {
@@ -85,20 +85,20 @@ for my $name ( @$files ) {
 					$data,
 					$threads_data->{ $tid }->{ name }
 				);
-				shift @$tids_order;
+				shift @tids_order;
 			}
 		}
 	}
 	if ( threads->list( threads::running ) <= ( $max_threads - 1 ) ) {
 		my $tid = threads->new( \&analyze_file, $name, $opts )->tid();
-		push @$tids_order, $tid;
+		push @tids_order, $tid;
 		$threads_data->{ $tid } = { name => $name };
 	} else {
 		redo;
 	}
 }
 
-for my $tid ( @$tids_order ) {
+for my $tid ( @tids_order ) {
 	my $data = $threads_data->{ $tid }->{ data };
 	my $name = $threads_data->{ $tid }->{ name };
 	$data = threads->object( $tid )->join() unless $data;
